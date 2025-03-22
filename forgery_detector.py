@@ -18,7 +18,9 @@ class DocumentForgeryDetector:
 
     def _configure_tesseract(self):
         tesseract_path = "/usr/bin/tesseract"  # Default Linux path
-        tessdata_path = "/usr/share/tesseract-ocr/4.00/tessdata/"  # Correct path
+
+    # Set the correct tessdata path dynamically
+        tessdata_path = "/usr/share/tesseract-ocr/5/tessdata/"  # Correct path found in Docker
 
         if os.path.exists(tesseract_path):
             pytesseract.pytesseract.tesseract_cmd = tesseract_path
@@ -27,6 +29,7 @@ class DocumentForgeryDetector:
             logger.info(f"TESSDATA_PREFIX set to: {tessdata_path}")
         else:
             logger.error("Tesseract is not installed or not found!")
+
 
 
 
