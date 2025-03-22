@@ -1,14 +1,13 @@
-# Use a base image that includes Tesseract
+# Use a base image with Python
 FROM python:3.11
 
-# Install system dependencies including Tesseract and language data
+# Install system dependencies and Tesseract (only English)
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     libtesseract-dev \
-    tesseract-ocr-eng \
-    tesseract-ocr-all
+    tesseract-ocr-eng  # Only English, not all languages
 
-# Set the Tesseract data directory
+# Set the correct TESSDATA_PREFIX path
 ENV TESSDATA_PREFIX="/usr/share/tesseract-ocr/4.00/tessdata/"
 
 # Set the working directory
