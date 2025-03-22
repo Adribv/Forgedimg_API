@@ -1,22 +1,22 @@
-# Use a base Python image
+# Use a Python image
 FROM python:3.11
 
-# Install Tesseract and manually create the tessdata directory
+# Install Tesseract and manually set the correct tessdata path
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     libtesseract-dev \
     tesseract-ocr-eng && \
-    mkdir -p /usr/share/tesseract-ocr/4.00/tessdata/ && \
-    cp -r /usr/share/tesseract-ocr/tessdata/* /usr/share/tesseract-ocr/4.00/tessdata/ && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Verify installation
-RUN tesseract --version && ls -lah /usr/share/tesseract-ocr/4.00/tessdata/
+# Find the correct tessdata directory
+RUN TESSDATA_DIR=$(find /usr/share -type d -name "tessdata" | head -n 1) && \
+    echo "TESSDATA_DIR found at: $TESSDATA_DIR" && \
+    ln -s $TESSDATA_DIR /usr/share/tesseract-ocr/4.00/tessdata/
 
-# Set the TESSDATA_PREFIX environment variable
+# Set the correct TESSDATA_PREFIX
 ENV TESSDATA_PREFIX="/usr/share/tesseract-ocr/4.00/tessdata/"
 
-# Set the working directory
+# Set working directory
 WORKDIR /app
 
 # Copy project files
