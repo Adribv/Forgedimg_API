@@ -17,14 +17,17 @@ class DocumentForgeryDetector:
         self._configure_tesseract()
 
     def _configure_tesseract(self):
-        tesseract_paths = ["/usr/bin/tesseract"]
-        for path in tesseract_paths:
-            if os.path.exists(path):
-                pytesseract.pytesseract.tesseract_cmd = path
-                os.environ["TESSDATA_PREFIX"] = "/usr/share/tesseract-ocr/4.00/tessdata/"
-                logger.info(f"Found Tesseract at: {path}")
-                logger.info(f"Set TESSDATA_PREFIX to: {os.environ['TESSDATA_PREFIX']}")
-                break
+        tesseract_path = "/usr/bin/tesseract"  # Default Linux path
+        tessdata_path = "/usr/share/tesseract-ocr/4.00/tessdata/"  # Correct path
+
+        if os.path.exists(tesseract_path):
+            pytesseract.pytesseract.tesseract_cmd = tesseract_path
+            os.environ["TESSDATA_PREFIX"] = tessdata_path
+            logger.info(f"Tesseract found at: {tesseract_path}")
+            logger.info(f"TESSDATA_PREFIX set to: {tessdata_path}")
+        else:
+            logger.error("Tesseract is not installed or not found!")
+
 
 
 
