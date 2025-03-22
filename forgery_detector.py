@@ -17,16 +17,15 @@ class DocumentForgeryDetector:
         self._configure_tesseract()
 
     def _configure_tesseract(self):
-        tesseract_paths = [r'C:\Program Files\Tesseract-OCR\tesseract.exe']
+        tesseract_paths = ["/usr/bin/tesseract"]
         for path in tesseract_paths:
             if os.path.exists(path):
                 pytesseract.pytesseract.tesseract_cmd = path
                 tessdata_path = os.path.join(os.path.dirname(path), "tessdata")
                 os.environ["TESSDATA_PREFIX"] = tessdata_path  # Set TESSDATA_PREFIX
                 logger.info(f"Found Tesseract at: {path}")
-                logger.info(f"Set TESSDATA_PREFIX to: {tessdata_path}")
                 break
-        os.environ["OMP_THREAD_LIMIT"] = "1"
+
 
     def analyze_document(self, file_path):
         results = {'is_forged': False, 'confidence': 0.0, 'analysis_details': {}}
@@ -66,11 +65,12 @@ class DocumentForgeryDetector:
         try:
             text_data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
             confidences = [int(conf) for conf in text_data['conf'] if isinstance(conf, (int, str)) and str(conf).isdigit()]
-            confidence = sum(confidences) / len(confidences) if confidences else 0.0
-            return {'confidence': confidence}
+            confidence = int(sum(confidences) / len(confidences)) if confidences else 0
+            return {'confidence': confidence}  # Convert to Python int
         except Exception as e:
             logger.error(f"Error in text analysis: {e}")
             return {'error': str(e)}
+
 
     def _analyze_noise(self, image):
         try:
