@@ -21,10 +21,11 @@ class DocumentForgeryDetector:
         for path in tesseract_paths:
             if os.path.exists(path):
                 pytesseract.pytesseract.tesseract_cmd = path
-                os.environ["TESSDATA_PREFIX"] = "/usr/share/tesseract-ocr/4.00/tessdata/"  # Correct Path
+                os.environ["TESSDATA_PREFIX"] = "/usr/share/tesseract-ocr/4.00/tessdata/"
                 logger.info(f"Found Tesseract at: {path}")
                 logger.info(f"Set TESSDATA_PREFIX to: {os.environ['TESSDATA_PREFIX']}")
                 break
+
 
 
 
@@ -71,6 +72,7 @@ class DocumentForgeryDetector:
         except Exception as e:
             logger.error(f"Error in text analysis: {e}")
             return {'error': str(e)}
+
 
 
 
