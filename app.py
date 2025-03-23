@@ -6,7 +6,8 @@ import pytesseract
 import tempfile
 import logging
 import gc
-from flask import Flask, request, jsonify
+import json
+from flask import Flask, request, jsonify, Response
 import uuid
 import werkzeug.utils
 
@@ -17,6 +18,20 @@ app = Flask(__name__)
 UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', './uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# Custom JSON encoder to handle numpy types
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (np.integer, np.int64, np.int32)):
+            return int(obj)
+        elif isinstance(obj, (np.floating, np.float64, np.float32)):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NumpyEncoder, self).default(obj)
+
+# Configure Flask to use the custom encoder
+app.json_encoder = NumpyEncoder
+
 class DocumentForgeryDetector:
     def __init__(self):
         logger.info("Initializing Document Forgery Detector")
@@ -25,7 +40,6 @@ class DocumentForgeryDetector:
 
     def _configure_tesseract(self):
         # Simplified Tesseract configuration for cloud deployment
-        # On Render, we'll install Tesseract via apt-get in a build script
         if os.environ.get('TESSDATA_PREFIX'):
             logger.info(f"Using TESSDATA_PREFIX from environment: {os.environ.get('TESSDATA_PREFIX')}")
         else:
@@ -57,12 +71,15 @@ class DocumentForgeryDetector:
             results['analysis_details']['noise_analysis'] = noise_analysis
             results['analysis_details']['edge_analysis'] = edge_analysis
             
+            # Convert numpy values to Python native types
+            text_confidence = float(text_analysis.get('confidence', 0))
+            
             # Adjust confidence threshold for better accuracy
-            if text_analysis.get('confidence', 0) < 50 or noise_analysis.get('is_suspicious', False) or edge_analysis.get('is_suspicious', False):
+            if text_confidence < 50 or noise_analysis.get('is_suspicious', False) or edge_analysis.get('is_suspicious', False):
                 results['is_forged'] = True
-                results['confidence'] = max(results.get('confidence', 0), 0.85)
+                results['confidence'] = max(float(results.get('confidence', 0)), 0.85)
             else:
-                results['confidence'] = min(results.get('confidence', 0) + text_analysis.get('confidence', 0) / 100, 0.95)
+                results['confidence'] = min(float(results.get('confidence', 0)) + text_confidence / 100, 0.95)
         except Exception as e:
             logger.error(f"Error in image analysis: {e}")
             results['error'] = str(e)
@@ -72,7 +89,7 @@ class DocumentForgeryDetector:
         try:
             text_data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
             confidences = [int(conf) for conf in text_data['conf'] if isinstance(conf, (int, str)) and str(conf).isdigit()]
-            confidence = sum(confidences) / len(confidences) if confidences else 0.0
+            confidence = float(sum(confidences) / len(confidences)) if confidences else 0.0
             return {'confidence': confidence}
         except Exception as e:
             logger.error(f"Error in text analysis: {e}")
@@ -80,9 +97,9 @@ class DocumentForgeryDetector:
 
     def _analyze_noise(self, image):
         try:
-            laplacian_var = cv2.Laplacian(image, cv2.CV_64F).var()
+            laplacian_var = float(cv2.Laplacian(image, cv2.CV_64F).var())
             is_suspicious = laplacian_var < 50  # Lower variance may indicate tampering
-            return {'laplacian_variance': laplacian_var, 'is_suspicious': is_suspicious}
+            return {'laplacian_variance': laplacian_var, 'is_suspicious': bool(is_suspicious)}
         except Exception as e:
             logger.error(f"Error in noise analysis: {e}")
             return {'error': str(e), 'is_suspicious': False}
@@ -90,9 +107,9 @@ class DocumentForgeryDetector:
     def _analyze_edges(self, image):
         try:
             edges = cv2.Canny(image, 100, 200)
-            edge_count = np.sum(edges > 0)
+            edge_count = int(np.sum(edges > 0))
             is_suspicious = edge_count < 10000  # Too few edges might indicate smoothing/tampering
-            return {'edge_count': edge_count, 'is_suspicious': is_suspicious}
+            return {'edge_count': edge_count, 'is_suspicious': bool(is_suspicious)}
         except Exception as e:
             logger.error(f"Error in edge analysis: {e}")
             return {'error': str(e), 'is_suspicious': False}
@@ -150,7 +167,11 @@ def analyze():
         if os.path.exists(file_path):
             os.remove(file_path)
         
-        return jsonify(results)
+        # Use custom JSON encoder to handle numpy types
+        return Response(
+            json.dumps(results, cls=NumpyEncoder),
+            mimetype='application/json'
+        )
     except Exception as e:
         logger.error(f"Error analyzing document: {e}")
         return jsonify({'error': str(e)}), 500
