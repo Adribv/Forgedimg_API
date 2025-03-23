@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: document-forgery-detector
+    env: python
+    buildCommand: ./build.sh
+    startCommand: gunicorn app:app
+    envVars:
+      - key: TESSDATA_PREFIX
+        value: /usr/share/tesseract-ocr/4.00/tessdata
+      - key: UPLOAD_FOLDER
+        value: ./uploads
+    disk:
+      name: uploads
+      mountPath: /app/uploads
+      sizeGB: 1

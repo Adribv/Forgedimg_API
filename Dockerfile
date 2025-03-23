@@ -1,32 +1,30 @@
-# Use a base Python image
-FROM python:3.11
+FROM python:3.9-slim
 
-# Install Tesseract and the English language model
-RUN apt-get update && apt-get install -y \
-    tesseract-ocr \
-    libtesseract-dev \
-    tesseract-ocr-eng && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Find the correct Tesseract tessdata directory dynamically
-RUN TESSDATA_DIR=$(find /usr/share -type d -name "tessdata" | head -n 1) && \
-    echo "TESSDATA_DIR found at: $TESSDATA_DIR" && \
-    echo "export TESSDATA_PREFIX=$TESSDATA_DIR" >> ~/.bashrc
-
-# Set the environment variable permanently
-ENV TESSDATA_PREFIX="/usr/share/tesseract-ocr/5/tessdata/"
-
-# Set working directory
 WORKDIR /app
 
-# Copy project files
-COPY . /app
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    libtesseract-dev \
+    libleptonica-dev \
+    libzbar0 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose the port Flask runs on
-EXPOSE 5000
+# Copy application code
+COPY . .
 
-# Start the Flask application
-CMD ["python", "app.py"]
+# Create upload directory
+RUN mkdir -p uploads
+
+# Set environment variables
+ENV PORT=8080
+ENV PYTHONUNBUFFERED=1
+
+# Run the application
+CMD gunicorn --bind 0.0.0.0:$PORT app:app
