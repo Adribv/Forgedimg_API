@@ -8,6 +8,7 @@ import logging
 import gc
 import json
 from flask import Flask, request, jsonify, Response
+from flask_cors import CORS  # Import CORS
 import uuid
 import werkzeug.utils
 
@@ -15,6 +16,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+# Enable CORS for all routes and origins
+CORS(app)
+
 UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', './uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -144,8 +148,12 @@ def home():
     </html>
     """
 
-@app.route('/analyze', methods=['POST'])
+@app.route('/analyze', methods=['POST', 'OPTIONS'])
 def analyze():
+    # Handle preflight CORS request
+    if request.method == 'OPTIONS':
+        return Response('', status=200)
+        
     if 'document' not in request.files:
         return jsonify({'error': 'No document part in the request'}), 400
     
