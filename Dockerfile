@@ -26,11 +26,12 @@ RUN pip install flask-cors
 COPY . .
 
 # Create upload directory
-RUN mkdir -p uploads
+RUN mkdir -p uploads && chmod 777 uploads
 
 # Set environment variables
 ENV PORT=8080
 ENV PYTHONUNBUFFERED=1
+ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/4.00/tessdata/
 
 # Run the application
-CMD gunicorn --bind 0.0.0.0:$PORT app:app
+CMD gunicorn --bind 0.0.0.0:$PORT --log-level info app:app

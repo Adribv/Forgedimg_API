@@ -148,32 +148,56 @@ def home():
     </html>
     """
 
+@app.route('/debug', methods=['GET'])
+def debug():
+    """Debug endpoint to verify server configuration and status"""
+    return jsonify({
+        'status': 'online',
+        'upload_folder': UPLOAD_FOLDER,
+        'environment': {k: v for k, v in os.environ.items() 
+                        if not k.startswith('_') and k not in ['PATH', 'PYTHONPATH']}
+    })
+
 @app.route('/analyze', methods=['POST', 'OPTIONS'])
 def analyze():
     # Handle preflight CORS request
     if request.method == 'OPTIONS':
         return Response('', status=200)
-        
+    
+    # Add detailed request logging
+    logger.info(f"Analyze request received: Content-Type={request.headers.get('Content-Type')}")
+    logger.info(f"Request files keys: {list(request.files.keys()) if request.files else 'No files'}")
+    logger.info(f"Request headers: {dict(request.headers)}")
+    
     if 'document' not in request.files:
+        logger.error(f"No document part found. Available parts: {list(request.files.keys()) if request.files else 'No files'}")
         return jsonify({'error': 'No document part in the request'}), 400
     
     file = request.files['document']
+    logger.info(f"Received file with filename: '{file.filename}'")
+    
     if file.filename == '':
+        logger.error("File selected but filename is empty")
         return jsonify({'error': 'No file selected for uploading'}), 400
     
     # Save file with secure filename
     filename = werkzeug.utils.secure_filename(file.filename)
     unique_filename = f"{uuid.uuid4()}_{filename}"
     file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+    
+    logger.info(f"Saving file to: {file_path}")
     file.save(file_path)
     
     try:
         # Analyze the document
+        logger.info(f"Starting document analysis for: {file_path}")
         results = detector.analyze_document(file_path)
+        logger.info(f"Analysis completed with results: {json.dumps(results, cls=NumpyEncoder)[:200]}...")
         
         # Clean up the file after analysis
         if os.path.exists(file_path):
             os.remove(file_path)
+            logger.info(f"Removed temporary file: {file_path}")
         
         # Use custom JSON encoder to handle numpy types
         return Response(
@@ -181,9 +205,13 @@ def analyze():
             mimetype='application/json'
         )
     except Exception as e:
-        logger.error(f"Error analyzing document: {e}")
+        logger.error(f"Error analyzing document: {str(e)}")
+        # More detailed error logging
+        import traceback
+        logger.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
+    logger.info(f"Starting server on port {port}")
     app.run(host='0.0.0.0', port=port)
